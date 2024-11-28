@@ -68,7 +68,7 @@ public:
   }
 
   /// Reads the register at the given address and returns its raw value.
-  uint16_t readReg(DRV8434SRegAddr address)
+  uint8_t readReg(DRV8434SRegAddr address) //was uint16_t
   {
     return readReg((uint8_t)address);
   }
@@ -501,6 +501,68 @@ public:
     writeCachedReg(DRV8434SRegAddr::CTRL3);
   }
 
+  /// Enables stall detection through SPI (EN_STL = 1).
+  /// Stall detection also needs the stall threshold (STALL_TH) to be either set 
+  /// or learned (STL_LRN = 1).
+  void enableStallDetection()
+  {
+    ctrl5 |= (1 << 4);
+    writeCachedReg(DRV8434SRegAddr::CTRL5);
+  }
+
+  /// Disables stall detection through SPI (EN_STL = 0).
+  void disableStallDetection()
+  {
+    ctrl5 &= ~(1 << 4);
+    writeCachedReg(DRV8434SRegAddr::CTRL5);
+  }
+
+  /// Enables stall detection learning through SPI (STL_LRN = 1).
+  ///
+  void enableStallLearning()
+  {
+    ctrl5 |= (1 << 5);
+    writeCachedReg(DRV8434SRegAddr::CTRL5);
+  }
+
+  /// Disables stall detection learning through SPI (STL_LRN = 0).
+  void disableStallLearning()
+  {
+    ctrl5 &= ~(1 << 5);
+    writeCachedReg(DRV8434SRegAddr::CTRL5);
+  }
+
+  void setStallThreshold(uint8_t stallThreshold){
+    //TODO
+    //setReg(DRV8434SRegAddr::CTRL6, stall_th_lwr);  
+  }
+
+  //TODO return correct value for stall_th
+  uint16_t readStallThreshold(){
+    stall_th_upr = (driver.readReg(DRV8434SRegAddr::CTRL7) << 4);
+    stall_th_upr = (stall_th_upr >> 4);
+    stall_th_lwr = driver.readReg(DRV8434SRegAddr::CTRL6);
+    stall_th =  (stall_th_upr << 8) + stall_th_lwr;
+    return stall_th;
+  }
+
+  //TODO implement readTRQ_COUNT
+  uint16_t readTRQ_COUNT(){
+    uint8_t temp = (driver.readReg(DRV8434SRegAddr::CTRL9) << 4);
+    temp = (temp >> 4);
+    return (temp << 8) + driver.readReg(DRV8434SRegAddr::CTRL8);
+  }
+
+  uint8_t readTRQ_COUNT_8(){
+    return driver.readReg(DRV8434SRegAddr::CTRL8);
+  }
+
+  uint8_t readTRQ_COUNT_9(){
+    uint8_t temp = (driver.readReg(DRV8434SRegAddr::CTRL9) << 4);
+    temp = (temp >> 4);
+    return temp;
+  }
+
   /// Sets the driver's stepping mode (MICROSTEP_MODE).
   ///
   /// This affects many things about the performance of the motor, including how
@@ -638,10 +700,41 @@ public:
     *cachedReg = value;
     driver.writeReg(address, value);
   }
+  //TODO implement readReg in DRV8434S class
+
+  void setStall_th_upr(uint8_t stl_upr){
+    ctrl7 |= stl_upr;
+    writeCachedReg(DRV8434SRegAddr::CTRL7);
+  }
+
+  uint8_t getStall_th_upr(){
+    return stall_th_upr;
+  }
+
+  void setStall_th_lwr(uint8_t stl_lwr){
+    ctrl6 = stl_lwr;
+    writeCachedReg(DRV8434SRegAddr::CTRL6);
+  }
+
+  uint8_t getStall_th_lwr(){
+    return stall_th_lwr;
+  }
+
+  void setStall_th(uint16_t stl_th){
+    //TODO implement splitting of full value into both parts
+    stall_th = stl_th;
+  }
+
+  uint16_t getStall_th(){
+    //TODO check if stall_th is defined
+    return stall_th;
+  }
 
 protected:
 
   uint8_t ctrl1, ctrl2, ctrl3, ctrl4, ctrl5, ctrl6, ctrl7;
+  uint8_t stall_th_upr, stall_th_lwr;
+  uint16_t stall_th;
 
   /// Returns a pointer to the variable containing the cached value for the
   /// given register.
@@ -669,7 +762,7 @@ protected:
   }
 
 public:
-  /// This object handles all the communication with the DRV8711.  Generally,
+  /// This object handles all the communication with the DRV8343s.  Generally,
   /// you should not need to use it in your code for basic usage of a
   /// High-Power Stepper Motor Driver, but you might want to use it to access
   /// more advanced settings that the HighPowerStepperDriver class does not
